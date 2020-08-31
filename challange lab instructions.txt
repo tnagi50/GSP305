@@ -1,0 +1,73 @@
+# GSP305 lab already deploys echo-cluster k8s cluster. It also creates a bucket with
+# PROJECT_ID containing compressed echo-web-v2 file.
+
+# Steps required to complete GSP305
+
+0) Activate gcloud shell
+
+1) Acquire credentials to access echo-cluster
+   -->  gcloud container clusters get-credentials echo-cluster --zone=us-central1-a
+
+2) Create echo-web v1 deployment
+   --> kubectl create deployment echo-web --image=gcr.io/qwiklabs-resources/echo-app:v1
+
+3) Expose echo-web v1 deployment to be accessed via port 80 using load balancer 
+   mapped internally to port 8000.
+   -->  kubectl expose deployment echo-web --type=LoadBalancer --port 80 --target-port 8000
+
+4) Verify echo-web v1 can be accessed via internet (http)
+   --> kubectl get service
+   (copy external ip address and paste it into the browser)
+
+# Above steps are required before GSP305 challange lab can be started
+
+5) Acquire project ID 
+   --> export PROJECT_ID=$(gcloud info --format='value(config.project)')
+   --> echo $PROJECT_ID (verify project ID)
+
+6) Create new directory to download project file from the bucket
+   --> cd ~
+   --> mkdir echo-web-v2
+   --> cd echo-web-v2
+
+7) Download echo-web v2 compressed file from the bucket
+   --> gsutil cp gs://${PROJECT_ID}/echo-web-v2.tar.gz .
+
+8) Uncompress downloaded file
+   --> tar -xzvf echo-web-v2.tar
+
+9) Modify echoweb-deployment.yaml as follows:
+   --> cd manifests
+   --> vi echoweb-deployment.yaml
+   --> # modify v1.0 to v2.0
+   --> ESC
+   --> :wq
+
+10) Build docker image from modified manifests
+    --> docker build -t echo-app:v2 .
+
+11) Tag the newly created docker image as v2
+    --> docker tag echo-app:v2 gcr.io/${PROJECT_ID}/echo-app:v2
+
+12) Puch tagged docker image to the container registry
+    --> docker push gcr.io/${PROJECT_ID}/echo-app:v2
+
+13) Verify docker image in the container registry
+    --> gcloud gui --> container registry --> images
+
+14) You need to update the running echo-app application in the echo-web 
+    deployment from the v1 to the v2 code you have been provided.
+    --> gcloud gui --> kubernetes engine --> workloads --> echo-web --> rolling update
+    --> Change echo-web container image version from v1 to v2
+
+15) You must also scale out the application to 2 instances and confirm 
+    that they are all running.
+    --> gcloud gui --> kubernetes engine --> workloads --> echo-web --> scale
+    --> Replicas: 2
+    --> Scale
+
+16) Verify updated application successful deployment
+    --> kubectl get service
+    --> copy external ip address
+    --> paste external ip address in the browser
+    --> Web display: Echo Test & Version: 2.0.0
